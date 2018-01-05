@@ -15,10 +15,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
-
+#include <vector>
 #include "inet/routing/aodv/AODVRouting.h"
 #include "inet/networklayer/ipv4/ICMPMessage.h"
 #include "inet/networklayer/ipv4/IPv4Route.h"
+#include "inet/networklayer/generic/GenericNetworkProtocolInterfaceData.h"
 
 #ifdef WITH_IDEALWIRELESS
 #include "inet/linklayer/ideal/IdealMacFrame_m.h"
@@ -363,7 +364,7 @@ void AODVRouting::sendRREP(AODVRREP *rrep, const L3Address& destAddr, unsigned i
         // It is possible that a RREP transmission may fail, especially if the
         // RREQ transmission triggering the RREP occurs over a unidirectional
         // link.
-
+	
         rrep->setAckRequiredFlag(true);
 
         // when a node detects that its transmission of a RREP message has failed,
@@ -723,6 +724,10 @@ void AODVRouting::updateRoutingTable(IRoute *route, const L3Address& nextHop, un
     routingData->setDestSeqNum(destSeqNum);
     routingData->setIsActive(isActive);
     routingData->setHasValidDestNum(hasValidDestNum);
+    
+    //add: Paramaters for neighbor table i.e list of 2-hop neighbors.
+    
+    //routingData->set2HopNeighbor(something)
 
     EV_DETAIL << "Route updated: " << route << endl;
 
@@ -1358,6 +1363,31 @@ void AODVRouting::sendGRREP(AODVRREP *grrep, const L3Address& destAddr, unsigned
     sendAODVPacket(grrep, nextHop, timeToLive, 0);
 }
 
+// add: Return the list of neigbors from routing table
+std::tuple<L3Address*, unsigned int> AODVRouting::getNeighbors()
+{	
+	std::vector<L3Address> dest;
+	InterfaceEntry *ifEntry = interfaceTable->getInterfaceByName("wlan0");
+	if( ifEntry->getGenericNetworkProtocolData() != nullptr ){
+		auto address = ifEntry->getGenericNetworkProtocolData()->getAddress();
+		if(!address.isUnspecified())
+			dest.push_back(address);
+	}			
+	
+	/* Look into routing table to get the list of neighbors
+std::vector<L3Address> v;
+	auto rc = routingTable->routingCache
+	for(map<IPv4Address,IPv4Route>::SubmoduleIterator it = rc.begin(); it !=rc.end();it++){
+		v.push_back(it->first);
+	}
+	*/
+	L3Address destinations[dest.size()];
+	std::copy(dest.begin(),dest.end(),destinations);
+	unsigned int nNeighbors = dest.size();
+	return std::make_tuple(destinations,nNeighbors);
+}
+
+
 AODVRREP *AODVRouting::createHelloMessage()
 {
     // called a Hello message, with the RREP
@@ -1378,9 +1408,14 @@ AODVRREP *AODVRouting::createHelloMessage()
     helloMessage->setHopCount(0);
     helloMessage->setLifeTime(allowedHelloLoss * helloInterval);
     helloMessage->setByteLength(20);
+    // add: set the neighbors for the hello message
+    auto tup = getNeighbors();
+    auto neighbors = *std::get<0>(tup); auto nNeighbors = std::get<1>(tup);
+    helloMessage->setNeighbors(nNeighbors, neighbors);
 
     return helloMessage;
 }
+
 
 void AODVRouting::sendHelloMessagesIfNeeded()
 {

@@ -22,6 +22,7 @@
 #include <set>
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/common/INETDefs.h"
+#include <list>
 
 namespace inet {
 
@@ -35,6 +36,11 @@ class INET_API AODVRouteData : public cObject
     bool validDestNum;
     unsigned int destSeqNum;
     simtime_t lifeTime;    // expiration or deletion time of the route
+    
+    //add: variables of neighbors
+    
+    
+   // unsigned int getNeighbor;
 
   public:
 
@@ -64,6 +70,8 @@ class INET_API AODVRouteData : public cObject
     void setIsActive(bool active) { this->active = active; }
     void addPrecursor(const L3Address& precursorAddr) { precursorList.insert(precursorAddr); }
     const std::set<L3Address>& getPrecursorList() const { return precursorList; }
+    
+    //add: method?
 };
 
 std::ostream& operator<<(std::ostream& out, const AODVRouteData *data);

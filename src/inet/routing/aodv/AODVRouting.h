@@ -31,7 +31,7 @@
 #include "inet/transportlayer/udp/UDPPacket.h"
 #include "inet/routing/aodv/AODVControlPackets_m.h"
 #include <map>
-
+#include <vector>
 namespace inet {
 
 /*
@@ -80,7 +80,7 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     unsigned int rerrRatelimit = 0;
     unsigned int aodvUDPPort = 0;
     bool askGratuitousRREP = false;
-    bool useHelloMessages = false;
+    bool useHelloMessages = true;
     simtime_t maxJitter;
     simtime_t activeRouteTimeout;
     simtime_t helloInterval;
@@ -152,6 +152,12 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
 
     /* Control packet creators */
     AODVRREPACK *createRREPACK();
+    
+    //add: Retrive Neighborlist function declaration.
+    
+    std::tuple<L3Address*, unsigned int> getNeighbors();
+    
+    
     AODVRREP *createHelloMessage();
     AODVRREQ *createRREQ(const L3Address& destAddr);
     AODVRREP *createRREP(AODVRREQ *rreq, IRoute *destRoute, IRoute *originatorRoute, const L3Address& sourceAddr);

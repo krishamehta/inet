@@ -18,11 +18,16 @@
 
 cplusplus {{
 #include "inet/networklayer/common/L3Address.h"
-}}
+#include "inet/networklayer/contract/ipv4/IPv4Address.h"
+
+}};
 
 namespace inet;
-
 class noncobject L3Address;
+//class noncobject IPv4Address;
+
+
+
 
 //
 // Helper struct to represent (L3Address, sequence number) pairs in a RERR message
@@ -83,6 +88,14 @@ class AODVRREP extends AODVControlPacket
     L3Address originatorAddr;
     unsigned int originatorSeqNum;
     simtime_t lifeTime;
+    
+    //add: neighbors here for hello message to deliver them. 
+   // NOTE: Hello messages are type of AODVRREP.
+  // Now figure out how to store neighbors.
+	    //L3Address neighbors;
+   L3Address neighbors[];
+   
+   //FindNeighbors neighbors[];
 }
 
 //

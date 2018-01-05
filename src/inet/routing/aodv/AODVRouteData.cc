@@ -26,6 +26,9 @@ std::ostream& operator<<(std::ostream& out, const AODVRouteData *data)
         << ", hasValidDestNum = " << data->hasValidDestNum()
         << ", destNum = " << data->getDestSeqNum()
         << ", lifetime = " << data->getLifeTime();
+        
+        //add: neighbor list
+        
 
     const std::set<L3Address>& preList = data->getPrecursorList();
 
