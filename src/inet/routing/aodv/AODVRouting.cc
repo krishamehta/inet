@@ -16,6 +16,7 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
 #include <vector>
+#include <iostream>
 #include "inet/routing/aodv/AODVRouting.h"
 #include "inet/networklayer/ipv4/ICMPMessage.h"
 #include "inet/networklayer/ipv4/IPv4Route.h"
@@ -51,8 +52,8 @@
 #include "inet/common/lifecycle/NodeOperations.h"
 
 namespace inet {
-
 Define_Module(AODVRouting);
+
 
 void AODVRouting::initialize(int stage)
 {
@@ -91,6 +92,9 @@ void AODVRouting::initialize(int stage)
         netTraversalTime = par("netTraversalTime");
         nextHopWait = par("nextHopWait");
         pathDiscoveryTime = par("pathDiscoveryTime");
+
+
+
     }
     else if (stage == INITSTAGE_ROUTING_PROTOCOLS) {
         NodeStatus *nodeStatus = dynamic_cast<NodeStatus *>(host->getSubmodule("status"));
@@ -707,10 +711,11 @@ void AODVRouting::handleRREP(AODVRREP *rrep, const L3Address& sourceAddr)
         }
     }
 
+
     delete rrep;
 }
 
-void AODVRouting::updateRoutingTable(IRoute *route, const L3Address& nextHop, unsigned int hopCount, bool hasValidDestNum, unsigned int destSeqNum, bool isActive, simtime_t lifeTime)
+void AODVRouting::updateRoutingTable(IRoute *route, const L3Address& nextHop, unsigned int hopCount, bool hasValidDestNum, unsigned int destSeqNum, bool isActive, simtime_t lifeTime, AODVRREP *helloMessage)
 {
     EV_DETAIL << "Updating existing route: " << route << endl;
 
@@ -725,8 +730,16 @@ void AODVRouting::updateRoutingTable(IRoute *route, const L3Address& nextHop, un
     routingData->setIsActive(isActive);
     routingData->setHasValidDestNum(hasValidDestNum);
     
+    routingData->clearNeighbors();
     //add: Paramaters for neighbor table i.e list of 2-hop neighbors.
-    
+    if(helloMessage!=nullptr){
+
+        for(unsigned int i=0;i<helloMessage->getNeighborsArraySize();i++){
+        routingData->addNeighbor(helloMessage->getNeighbors(i));
+        EV_INFO<<routingData<<endl;
+        EV_INFO<<"HELLO WORLD"<<endl;
+        }
+    }
     //routingData->set2HopNeighbor(something)
 
     EV_DETAIL << "Route updated: " << route << endl;
@@ -1363,29 +1376,6 @@ void AODVRouting::sendGRREP(AODVRREP *grrep, const L3Address& destAddr, unsigned
     sendAODVPacket(grrep, nextHop, timeToLive, 0);
 }
 
-// add: Return the list of neigbors from routing table
-std::tuple<L3Address*, unsigned int> AODVRouting::getNeighbors()
-{	
-	std::vector<L3Address> dest;
-	InterfaceEntry *ifEntry = interfaceTable->getInterfaceByName("wlan0");
-	if( ifEntry->getGenericNetworkProtocolData() != nullptr ){
-		auto address = ifEntry->getGenericNetworkProtocolData()->getAddress();
-		if(!address.isUnspecified())
-			dest.push_back(address);
-	}			
-	
-	/* Look into routing table to get the list of neighbors
-std::vector<L3Address> v;
-	auto rc = routingTable->routingCache
-	for(map<IPv4Address,IPv4Route>::SubmoduleIterator it = rc.begin(); it !=rc.end();it++){
-		v.push_back(it->first);
-	}
-	*/
-	L3Address destinations[dest.size()];
-	std::copy(dest.begin(),dest.end(),destinations);
-	unsigned int nNeighbors = dest.size();
-	return std::make_tuple(destinations,nNeighbors);
-}
 
 
 AODVRREP *AODVRouting::createHelloMessage()
@@ -1408,12 +1398,29 @@ AODVRREP *AODVRouting::createHelloMessage()
     helloMessage->setHopCount(0);
     helloMessage->setLifeTime(allowedHelloLoss * helloInterval);
     helloMessage->setByteLength(20);
-    // add: set the neighbors for the hello message
-    auto tup = getNeighbors();
-    auto neighbors = *std::get<0>(tup); auto nNeighbors = std::get<1>(tup);
-    helloMessage->setNeighbors(nNeighbors, neighbors);
 
-    return helloMessage;
+    // add: set the neighbors for the hello message
+    std::vector<L3Address> dest;
+        for (unsigned int i = 0; i < routingTable->getNumRoutes(); i++) {
+                IRoute *route = routingTable->getRoute(i);
+                if (route->getSource() == this) {
+                    AODVRouteData *routeData = check_and_cast<AODVRouteData *>(route->getProtocolData());
+                    if (routeData->isActive() && route->getMetric()==1) {
+                       auto address = route->getDestinationAsGeneric();
+                       dest.push_back(address);
+                       EV_INFO<<address<<endl;
+                                 }
+                }
+            }
+
+        //add: Initialize destination array
+        std::vector<L3Address>::const_iterator iter = dest.begin();
+        helloMessage->setNeighborsArraySize(dest.size());
+
+        for(int i=0; iter!=dest.end(); i++, iter++){
+            helloMessage->setNeighbors(i, *iter);
+        }
+        return helloMessage;
 }
 
 
@@ -1474,7 +1481,7 @@ void AODVRouting::handleHelloMessage(AODVRREP *helloMessage)
     else {
         AODVRouteData *routeData = check_and_cast<AODVRouteData *>(routeHelloOriginator->getProtocolData());
         simtime_t lifeTime = routeData->getLifeTime();
-        updateRoutingTable(routeHelloOriginator, helloOriginatorAddr, 1, true, latestDestSeqNum, true, std::max(lifeTime, newLifeTime));
+        updateRoutingTable(routeHelloOriginator, helloOriginatorAddr, 1, true, latestDestSeqNum, true, std::max(lifeTime, newLifeTime), helloMessage);
     }
 
     // TODO: This feature has not implemented yet.

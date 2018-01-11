@@ -144,7 +144,7 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     void cancelRouteDiscovery(const L3Address& destAddr);
 
     /* Routing Table management */
-    void updateRoutingTable(IRoute *route, const L3Address& nextHop, unsigned int hopCount, bool hasValidDestNum, unsigned int destSeqNum, bool isActive, simtime_t lifeTime);
+    void updateRoutingTable(IRoute *route, const L3Address& nextHop, unsigned int hopCount, bool hasValidDestNum, unsigned int destSeqNum, bool isActive, simtime_t lifeTime,AODVRREP *helloMessage=nullptr);
     IRoute *createRoute(const L3Address& destAddr, const L3Address& nextHop, unsigned int hopCount, bool hasValidDestNum, unsigned int destSeqNum, bool isActive, simtime_t lifeTime);
     bool updateValidRouteLifeTime(const L3Address& destAddr, simtime_t lifetime);
     void scheduleExpungeRoutes();
@@ -155,8 +155,9 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     
     //add: Retrive Neighborlist function declaration.
     
-    std::tuple<L3Address*, unsigned int> getNeighbors();
-    
+    unsigned int getnNeighbors();
+    void getNeighbors();
+
     
     AODVRREP *createHelloMessage();
     AODVRREQ *createRREQ(const L3Address& destAddr);

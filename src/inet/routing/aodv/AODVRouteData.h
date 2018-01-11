@@ -35,13 +35,12 @@ class INET_API AODVRouteData : public cObject
     bool beingRepaired;
     bool validDestNum;
     unsigned int destSeqNum;
+
+    //add: variables of neighbors
+    std::set<L3Address> neighbors;
+
     simtime_t lifeTime;    // expiration or deletion time of the route
     
-    //add: variables of neighbors
-    
-    
-   // unsigned int getNeighbor;
-
   public:
 
     AODVRouteData()
@@ -52,6 +51,7 @@ class INET_API AODVRouteData : public cObject
         validDestNum = true;
         lifeTime = SIMTIME_ZERO;
         destSeqNum = 0;
+
     }
 
     virtual ~AODVRouteData() {}
@@ -70,8 +70,11 @@ class INET_API AODVRouteData : public cObject
     void setIsActive(bool active) { this->active = active; }
     void addPrecursor(const L3Address& precursorAddr) { precursorList.insert(precursorAddr); }
     const std::set<L3Address>& getPrecursorList() const { return precursorList; }
-    
-    //add: method?
+    const std::set<L3Address>& getNeighborList() const { return neighbors; }
+    void addNeighbor(const L3Address& neighborAddr){ neighbors.insert(neighborAddr); }
+    void clearNeighbors(){ neighbors.clear(); }
+
+
 };
 
 std::ostream& operator<<(std::ostream& out, const AODVRouteData *data);
