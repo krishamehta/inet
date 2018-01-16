@@ -71,6 +71,8 @@ class AODVRREQ extends AODVControlPacket
     unsigned int destSeqNum;
     L3Address originatorAddr;
     unsigned int originatorSeqNum;
+    // add: Name of the requested file
+    unsigned int fileName;
 }
 
 //

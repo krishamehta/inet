@@ -32,6 +32,8 @@
 #include "inet/routing/aodv/AODVControlPackets_m.h"
 #include <map>
 #include <vector>
+#include <set>
+
 namespace inet {
 
 /*
@@ -123,14 +125,26 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     cMessage *expungeTimer = nullptr;    // timer to clean the routing table out
     cMessage *counterTimer = nullptr;    // timer to set rrerCount = rreqCount = 0 in each second
     cMessage *rrepAckTimer = nullptr;    // timer to wait for RREP-ACKs (RREP-ACK timeout)
-    cMessage *blacklistTimer = nullptr;    // timer to clean the blacklist out
-
+    cMessage *blacklistTimer = nullptr;  // timer to clean the blacklist out
+    //add: RADTimer
+    cMessage *RADTimer = nullptr;         //timer to send RAD and hold RREQ messages.
     // lifecycle
     simtime_t rebootTime;    // the last time when the node rebooted
     bool isOperational = false;
 
     // internal
     std::multimap<L3Address, INetworkDatagram *> targetAddressToDelayedPackets;    // queue for the datagrams we have no route for
+
+    //add: set for Sba: covered nodes
+    std::set<L3Address> coveredNodes;
+
+    //add: make copy of rreq pointer
+    AODVRREQ *copyrreq;
+
+    //add: set for files: set of files each node has
+    std::set<unsigned int> nodeFiles;
+
+
 
   protected:
     void handleMessage(cMessage *msg) override;
@@ -153,17 +167,17 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     /* Control packet creators */
     AODVRREPACK *createRREPACK();
     
-    //add: Retrive Neighborlist function declaration.
-    
-    unsigned int getnNeighbors();
-    void getNeighbors();
 
-    
     AODVRREP *createHelloMessage();
     AODVRREQ *createRREQ(const L3Address& destAddr);
     AODVRREP *createRREP(AODVRREQ *rreq, IRoute *destRoute, IRoute *originatorRoute, const L3Address& sourceAddr);
     AODVRREP *createGratuitousRREP(AODVRREQ *rreq, IRoute *originatorRoute);
     AODVRERR *createRERR(const std::vector<UnreachableNode>& unreachableNodes);
+
+    //add: function for SBA
+    void sba(AODVRREQ *rreq=nullptr, const L3Address* sourceAddr=nullptr, unsigned int timeToLive=0);
+    // add: function to compare neighbors
+    bool compareNeighbors();
 
     /* Control Packet handlers */
     void handleRREP(AODVRREP *rrep, const L3Address& sourceAddr);
@@ -209,6 +223,7 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
 
     /* Lifecycle */
     virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
+
 
   public:
     AODVRouting();

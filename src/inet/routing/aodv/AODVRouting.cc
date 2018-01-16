@@ -11,10 +11,11 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Lesser General Public License for more details.
-//
+
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
+#include <bits/stdc++.h>
 #include <vector>
 #include <iostream>
 #include "inet/routing/aodv/AODVRouting.h"
@@ -122,6 +123,9 @@ void AODVRouting::initialize(int stage)
         rrepAckTimer = new cMessage("RREPACKTimer");
         blacklistTimer = new cMessage("BlackListTimer");
 
+        //add: RADTimer
+        RADTimer = new cMessage("RADTimer");
+
         if (isOperational)
             scheduleAt(simTime() + 1, counterTimer);
     }
@@ -148,6 +152,10 @@ void AODVRouting::handleMessage(cMessage *msg)
         else if (msg == counterTimer) {
             rreqCount = rerrCount = 0;
             scheduleAt(simTime() + 1, counterTimer);
+        }
+        //add: RAD SelfMessage
+        else if (msg == RADTimer){
+            sba();
         }
         else if (msg == rrepAckTimer)
             handleRREPACKTimer();
@@ -193,6 +201,7 @@ void AODVRouting::handleMessage(cMessage *msg)
 
 INetfilter::IHook::Result AODVRouting::ensureRouteForDatagram(INetworkDatagram *datagram)
 {
+
     Enter_Method("datagramPreRoutingHook");
     const L3Address& destAddr = datagram->getDestinationAddress();
     const L3Address& sourceAddr = datagram->getSourceAddress();
@@ -267,6 +276,7 @@ void AODVRouting::startRouteDiscovery(const L3Address& target, unsigned timeToLi
 
 L3Address AODVRouting::getSelfIPAddress() const
 {
+
     return routingTable->getRouterIdAsGeneric();
 }
 
@@ -289,6 +299,8 @@ void AODVRouting::sendRREQ(AODVRREQ *rreq, const L3Address& destAddr, unsigned i
     // again with the TTL incremented by TTL_INCREMENT.  This continues
     // until the TTL set in the RREQ reaches TTL_THRESHOLD, beyond which a
     // TTL = NET_DIAMETER is used for each attempt.
+
+
 
     if (rreqCount >= rreqRatelimit) {
         EV_WARN << "A node should not originate more than RREQ_RATELIMIT RREQ messages per second. Canceling sending RREQ" << endl;
@@ -737,10 +749,8 @@ void AODVRouting::updateRoutingTable(IRoute *route, const L3Address& nextHop, un
         for(unsigned int i=0;i<helloMessage->getNeighborsArraySize();i++){
         routingData->addNeighbor(helloMessage->getNeighbors(i));
         EV_INFO<<routingData<<endl;
-        EV_INFO<<"HELLO WORLD"<<endl;
         }
     }
-    //routingData->set2HopNeighbor(something)
 
     EV_DETAIL << "Route updated: " << route << endl;
 
@@ -780,7 +790,7 @@ void AODVRouting::sendAODVPacket(AODVControlPacket *packet, const L3Address& des
 
 void AODVRouting::handleRREQ(AODVRREQ *rreq, const L3Address& sourceAddr, unsigned int timeToLive)
 {
-    EV_INFO << "AODV Route Request arrived with source addr: " << sourceAddr << " originator addr: " << rreq->getOriginatorAddr()
+        EV_INFO << "AODV Route Request arrived with source addr: " << sourceAddr << " originator addr: " << rreq->getOriginatorAddr()
             << " destination addr: " << rreq->getDestAddr() << endl;
 
     // A node ignores all RREQs received from any node in its blacklist set.
@@ -970,19 +980,98 @@ void AODVRouting::handleRREQ(AODVRREQ *rreq, const L3Address& sourceAddr, unsign
     // incoming RREQ is larger than the value currently maintained by the
     // forwarding node.
 
+    //add:
+
     if (timeToLive > 0 && (simTime() > rebootTime + deletePeriod || rebootTime == 0)) {
+
         if (destRouteData)
             rreq->setDestSeqNum(std::max(destRouteData->getDestSeqNum(), rreq->getDestSeqNum()));
         rreq->setUnknownSeqNumFlag(false);
-
+        /*
         AODVRREQ *outgoingRREQ = rreq->dup();
         forwardRREQ(outgoingRREQ, timeToLive);
+        */
+        sba(rreq, &sourceAddr, timeToLive);
+
     }
     else
         EV_WARN << "Can't forward the RREQ because of its small (<= 1) TTL: " << timeToLive << " or the AODV reboot has not completed yet" << endl;
 
     delete rreq;
 }
+
+//add: Add function for SBA
+
+void AODVRouting::sba(AODVRREQ *rreq, const L3Address* sourceAddr, unsigned int timeToLive){
+
+
+
+    // Case when Rad timer has elapsed
+    if(rreq==nullptr){
+        if(compareNeighbors()){
+            //delete rreq;
+            EV_INFO<<"ALL NEIGHBORS COVERED AFTER RAD"<<endl;
+            coveredNodes.clear();
+            return;
+        }
+        else{
+            EV_INFO<<"ALL NODES NOT COVERED YET"<<endl;
+            forwardRREQ(copyrreq, timeToLive);
+            coveredNodes.clear();
+            return;
+
+        }
+    }
+    // Case when a rreq is received by intermediate node, it may be a new rreq or repeated
+    else{
+
+        bool isNew = coveredNodes.empty(); // Flag for if the rreq is new
+
+        // update covered nodes
+        coveredNodes.insert(*sourceAddr);
+        IRoute *route = routingTable->findBestMatchingRoute(*sourceAddr);
+        AODVRouteData *routeData = check_and_cast<AODVRouteData *>(route->getProtocolData());
+        std::set<L3Address> neighbors = routeData->getNeighborList();
+        coveredNodes.insert(neighbors.begin(),neighbors.end());
+
+        if(isNew){
+            copyrreq = rreq->dup();
+
+            if(compareNeighbors()){
+                //delete rreq;
+                EV_INFO<<"NEIGHBORS COVERED BEFORE RAD"<<endl;
+                return;
+            }
+            else{
+                scheduleAt(simTime() + 1, RADTimer);    //Calculate random time to add to simTime.
+                EV_INFO<<"SCHEDULE RAD TIME"<<endl;
+            }
+        }
+    }
+}
+
+//add: Add function to compare neighbors
+
+bool AODVRouting::compareNeighbors(){
+    std::set<L3Address> intersect;
+    std::set<L3Address> neighbors;
+
+    for (unsigned int i = 0; i < routingTable->getNumRoutes(); i++) {
+        IRoute *route = routingTable->getRoute(i);
+        if (route->getSource() == this) {
+            AODVRouteData *routeData = check_and_cast<AODVRouteData *>(route->getProtocolData());
+            if (routeData->isActive() && route->getMetric()==1) {
+                auto address = route->getDestinationAsGeneric();
+                neighbors.insert(address);
+            }
+        }
+    }
+
+    std::set_intersection(neighbors.begin(),neighbors.end(),coveredNodes.begin(),coveredNodes.end(),
+                      std::inserter(intersect,intersect.begin()));
+    return intersect == neighbors;
+}
+
 
 IRoute *AODVRouting::createRoute(const L3Address& destAddr, const L3Address& nextHop,
         unsigned int hopCount, bool hasValidDestNum, unsigned int destSeqNum,
@@ -1300,6 +1389,8 @@ void AODVRouting::clearState()
         cancelEvent(blacklistTimer);
     if (rrepAckTimer)
         cancelEvent(rrepAckTimer);
+
+    //add: RAD cancel event?
 }
 
 void AODVRouting::handleWaitForRREP(WaitForRREP *rrepTimer)
@@ -1764,7 +1855,11 @@ AODVRouting::~AODVRouting()
     delete counterTimer;
     delete rrepAckTimer;
     delete blacklistTimer;
+    //add: RADTimer delete
+    delete RADTimer;
 }
+
+
 
 } // namespace inet
 
