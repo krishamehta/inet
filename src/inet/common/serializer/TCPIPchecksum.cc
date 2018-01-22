@@ -23,7 +23,7 @@ namespace serializer {
 
 uint16_t TCPIPchecksum::_checksum(const void *_addr, unsigned int count)
 {
-    const uint8_t *addr = static_cast<const uint8_t *>(_addr);
+    const unsigned char *addr = static_cast<const unsigned char *>(_addr);
     uint32_t sum = 0;
 
     while (count > 1) {
@@ -35,7 +35,7 @@ uint16_t TCPIPchecksum::_checksum(const void *_addr, unsigned int count)
     }
 
     if (count)
-        sum += addr[0] << 8;
+        sum += *(const uint8_t *)addr;
 
     while (sum >> 16)
         sum = (sum & 0xFFFF) + (sum >> 16);

@@ -25,8 +25,6 @@
 #include <set>
 #include <vector>
 
-#include "INETDefs.h" // for ASSERT
-
 namespace inet {
 
 template<typename T>

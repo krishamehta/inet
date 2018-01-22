@@ -280,6 +280,7 @@ void ICMP::sendEchoRequest(PingPayload *msg)
     request->setType(ICMP_ECHO_REQUEST);
     request->encapsulate(msg);
     request->setControlInfo(ctrl);
+    EV_INFO<<ctrl->fileName<<endl;
     sendToIP(request);
 }
 

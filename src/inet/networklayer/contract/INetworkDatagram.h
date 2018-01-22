@@ -33,6 +33,7 @@ class INET_API INetworkDatagram
     virtual void setDestinationAddress(const L3Address& address) = 0;
     virtual int getTransportProtocol() const = 0;
     virtual void setTransportProtocol(int protocol) = 0;
+    int fileName;
 };
 
 } // namespace inet

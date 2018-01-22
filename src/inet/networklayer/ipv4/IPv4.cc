@@ -59,6 +59,7 @@ void IPv4::initialize(int stage)
     if (stage == INITSTAGE_LOCAL) {
         QueueBase::initialize();
 
+
         ift = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
         rt = getModuleFromPar<IIPv4RoutingTable>(par("routingTableModule"), this);
         arp = getModuleFromPar<IARP>(par("arpModule"), this);
@@ -98,6 +99,7 @@ void IPv4::initialize(int stage)
         WATCH_MAP(pendingPackets);
     }
     else if (stage == INITSTAGE_NETWORK_LAYER) {
+
         isUp = isNodeUp();
     }
 }
@@ -120,15 +122,23 @@ void IPv4::refreshDisplay() const
 
 void IPv4::handleMessage(cMessage *msg)
 {
+    EV_INFO<<"kRISHA IS AWESOME";
+
     if (dynamic_cast<RegisterTransportProtocolCommand *>(msg)) {
+        EV_INFO<<": 1"<<endl;
         RegisterTransportProtocolCommand *command = check_and_cast<RegisterTransportProtocolCommand *>(msg);
         mapping.addProtocolMapping(command->getProtocol(), msg->getArrivalGate()->getIndex());
         delete msg;
     }
-    else if (!msg->isSelfMessage() && msg->getArrivalGate()->isName("arpIn"))
+    else if (!msg->isSelfMessage() && msg->getArrivalGate()->isName("arpIn")){
+        EV_INFO<<": 2"<<endl;
         endService(PK(msg));
-    else
+    }
+    else{
+        EV_INFO<<": 3"<<endl;
+
         QueueBase::handleMessage(msg);
+    }
 }
 
 void IPv4::endService(cPacket *packet)
@@ -423,7 +433,7 @@ const InterfaceEntry *IPv4::determineOutgoingInterfaceForMulticastDatagram(IPv4D
 }
 
 void IPv4::routeUnicastPacket(IPv4Datagram *datagram, const InterfaceEntry *fromIE, const InterfaceEntry *destIE, IPv4Address requestedNextHopAddress)
-{
+{       
     IPv4Address destAddr = datagram->getDestAddress();
     EV_INFO << "Routing " << datagram << " with destination = " << destAddr << ", ";
 
@@ -436,6 +446,7 @@ void IPv4::routeUnicastPacket(IPv4Datagram *datagram, const InterfaceEntry *from
             nextHopAddr = requestedNextHopAddress;
         // special case ICMP reply
         else if (destIE->isBroadcast()) {
+
             // if the interface is broadcast we must search the next hop
             const IPv4Route *re = rt->findBestMatchingRoute(destAddr);
             if (re && re->getInterface() == destIE)
@@ -656,6 +667,7 @@ cPacket *IPv4::decapsulate(IPv4Datagram *datagram)
     controlInfo->setTypeOfService(datagram->getTypeOfService());
     controlInfo->setInterfaceId(fromIE ? fromIE->getInterfaceId() : -1);
     controlInfo->setTimeToLive(datagram->getTimeToLive());
+    controlInfo->fileName = datagram->fileName;
 
     // original IPv4 datagram might be needed in upper layers to send back ICMP error message
     controlInfo->setOrigDatagram(datagram);
@@ -775,6 +787,7 @@ IPv4Datagram *IPv4::encapsulate(cPacket *transportPacket, IPv4ControlInfo *contr
     datagram->setMoreFragments(false);
     datagram->setDontFragment(controlInfo->getDontFragment());
     datagram->setFragmentOffset(0);
+    datagram->fileName=controlInfo->fileName;
 
     short ttl;
     if (controlInfo->getTimeToLive() > 0)

@@ -56,6 +56,8 @@ class INET_API PingApp : public cSimpleModule, public ILifecycle
     simtime_t stopTime;
     bool printPing = false;
     bool continuous = false;
+    //add: file
+    int fileName;
 
     // state
     int pid = 0;    // to determine which hosts are associated with the responses
@@ -85,14 +87,15 @@ class INET_API PingApp : public cSimpleModule, public ILifecycle
     virtual void finish() override;
     virtual void refreshDisplay() const override;
 
-    virtual void parseDestAddressesPar();
+  //  virtual void parseDestAddressesPar();
     virtual void startSendingPingRequests();
     virtual void stopSendingPingRequests();
-    virtual void scheduleNextPingRequest(simtime_t previous, bool withSleep);
+    //add: bool withSleep removed
+    virtual void scheduleNextPingRequest(simtime_t previous);
     virtual void cancelNextPingRequest();
     virtual bool isNodeUp();
     virtual bool isEnabled();
-    virtual std::vector<L3Address> getAllAddresses();
+  //  virtual std::vector<L3Address> getAllAddresses();
     virtual void sendPing();
     virtual void processPingResponse(PingPayload *msg);
     virtual void countPingResponse(int bytes, long seqNo, simtime_t rtt);

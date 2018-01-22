@@ -73,7 +73,6 @@ void StatisticVisualizerBase::initialize(int stage)
         signalName = par("signalName");
         statisticName = par("statisticName");
         format.parseFormat(par("format"));
-        statisticUnit = par("statisticUnit");
         cStringTokenizer tokenizer(par("unit"));
         while (tokenizer.hasMoreTokens())
             units.push_back(tokenizer.nextToken());
@@ -160,7 +159,7 @@ const char *StatisticVisualizerBase::getUnit(cComponent *source)
         if (!strcmp(property->getName(), "statistic") && !strcmp(property->getIndex(), statisticName))
             return property->getValue("unit", 0);
     }
-    return statisticUnit;
+    return nullptr;
 }
 
 const StatisticVisualizerBase::StatisticVisualization *StatisticVisualizerBase::getStatisticVisualization(cComponent *source, simsignal_t signal)

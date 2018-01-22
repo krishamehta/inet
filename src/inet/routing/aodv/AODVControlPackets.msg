@@ -44,6 +44,8 @@ enum AODVControlPacketType
     RREP = 2;
     RERR = 3;
     RREPACK = 4;
+    //add: Filepacket
+    filePack = 5;
 };
 
 //
@@ -99,6 +101,24 @@ class AODVRREP extends AODVControlPacket
    
    //FindNeighbors neighbors[];
 }
+//add: filePacket function
+
+class AODVfilePack extends AODVControlPacket
+{
+    packetType = filePack;
+    bool repairFlag;
+    bool ackRequiredFlag;
+    unsigned int prefixSize;
+    unsigned int hopCount;
+    L3Address destAddr;
+    unsigned int destSeqNum;
+    L3Address originatorAddr;
+    unsigned int originatorSeqNum;
+    simtime_t lifeTime;
+    
+      
+}
+
 
 //
 // Represents an AODV Route Error

@@ -183,8 +183,7 @@ void AODVRouting::handleMessage(cMessage *msg)
             case RREP:
                 handleRREP(check_and_cast<AODVRREP *>(ctrlPacket), sourceAddr);
                 break;
-
-            case RERR:
+                            case RERR:
                 handleRERR(check_and_cast<AODVRERR *>(ctrlPacket), sourceAddr);
                 break;
 
@@ -201,10 +200,13 @@ void AODVRouting::handleMessage(cMessage *msg)
 
 INetfilter::IHook::Result AODVRouting::ensureRouteForDatagram(INetworkDatagram *datagram)
 {
+        EV_INFO<<"eNSURE ROUTE DATA CHALU HAI"<<endl;
 
     Enter_Method("datagramPreRoutingHook");
     const L3Address& destAddr = datagram->getDestinationAddress();
     const L3Address& sourceAddr = datagram->getSourceAddress();
+    int fileName = datagram->fileName;
+    EV_INFO<<"NACHO SAARE JEE FAADKE: "<<fileName<<endl;
 
     if (destAddr.isBroadcast() || routingTable->isLocalAddress(destAddr) || destAddr.isMulticast())
         return ACCEPT;
@@ -411,6 +413,7 @@ AODVRREQ *AODVRouting::createRREQ(const L3Address& destAddr)
     sequenceNum++;
 
     rreqPacket->setOriginatorSeqNum(sequenceNum);
+    rreqPacket->setFileName(2);
 
     if (lastKnownRoute && lastKnownRoute->getSource() == this) {
         // The Destination Sequence Number field in the RREQ message is the last
@@ -708,6 +711,8 @@ void AODVRouting::handleRREP(AODVRREP *rrep, const L3Address& sourceAddr)
                     AODVRouteData *nextHopToDestRouteData = check_and_cast<AODVRouteData *>(nextHopToDestRoute->getProtocolData());
                     nextHopToDestRouteData->addPrecursor(originatorRoute->getNextHopAsGeneric());
                 }
+
+
                 AODVRREP *outgoingRREP = rrep->dup();
                 forwardRREP(outgoingRREP, originatorRoute->getNextHopAsGeneric(), 100);
             }
@@ -917,9 +922,11 @@ void AODVRouting::handleRREQ(AODVRREQ *rreq, const L3Address& sourceAddr, unsign
     IRoute *destRoute = routingTable->findBestMatchingRoute(rreq->getDestAddr());
     AODVRouteData *destRouteData = destRoute ? dynamic_cast<AODVRouteData *>(destRoute->getProtocolData()) : nullptr;
 
+
     // check (i)
-    if (rreq->getDestAddr() == getSelfIPAddress()) {
-        EV_INFO << "I am the destination node for which the route was requested" << endl;
+
+    if(rreq->getFileName() == host->getIndex()){      // EV_INFO << "I have the requested file" << endl;
+  //  if (rreq->getDestAddr() == getSelfIPAddress()) {
 
         // create RREP
         AODVRREP *rrep = createRREP(rreq, destRoute, reverseRoute, sourceAddr);
@@ -931,8 +938,9 @@ void AODVRouting::handleRREQ(AODVRREQ *rreq, const L3Address& sourceAddr, unsign
         return;    // discard RREQ, in this case, we do not forward it.
     }
 
+
     // check (ii)
-    if (destRouteData && destRouteData->isActive() && destRouteData->hasValidDestNum() &&
+    /* if (destRouteData && destRouteData->isActive() && destRouteData->hasValidDestNum() &&
         destRouteData->getDestSeqNum() >= rreq->getDestSeqNum())
     {
         EV_INFO << "I am an intermediate node who has information about a route to " << rreq->getDestAddr() << endl;
@@ -963,7 +971,7 @@ void AODVRouting::handleRREQ(AODVRREQ *rreq, const L3Address& sourceAddr, unsign
 
         delete rreq;
         return;    // discard RREQ, in this case, we also do not forward it.
-    }
+    } */
     // If a node does not generate a RREP (following the processing rules in
     // section 6.6), and if the incoming IP header has TTL larger than 1,
     // the node updates and broadcasts the RREQ to address 255.255.255.255

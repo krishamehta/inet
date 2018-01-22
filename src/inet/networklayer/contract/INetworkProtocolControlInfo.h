@@ -37,6 +37,7 @@ class INET_API INetworkProtocolControlInfo
     virtual void setInterfaceId(int interfaceId) = 0;
     virtual short getHopLimit() const = 0;
     virtual void setHopLimit(short hopLimit) = 0;
+    int fileName;
 };
 
 } // namespace inet

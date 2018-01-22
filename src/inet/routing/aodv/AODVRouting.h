@@ -141,9 +141,8 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     //add: make copy of rreq pointer
     AODVRREQ *copyrreq;
 
-    //add: set for files: set of files each node has
-    std::set<unsigned int> nodeFiles;
-
+    //add: divisor for the modulo function of determining which file a host has
+    unsigned int fileDivisor = 5;
 
 
   protected:
@@ -174,6 +173,8 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     AODVRREP *createGratuitousRREP(AODVRREQ *rreq, IRoute *originatorRoute);
     AODVRERR *createRERR(const std::vector<UnreachableNode>& unreachableNodes);
 
+    //add: filePacket function
+    AODVfilePack *createfilePack(AODVfilePack *filepack, IRoute *destRoute, IRoute *originatorRoute, const L3Address& sourceAddr);
     //add: function for SBA
     void sba(AODVRREQ *rreq=nullptr, const L3Address* sourceAddr=nullptr, unsigned int timeToLive=0);
     // add: function to compare neighbors
@@ -181,6 +182,9 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
 
     /* Control Packet handlers */
     void handleRREP(AODVRREP *rrep, const L3Address& sourceAddr);
+    //add:filepack function
+    void handlefilePack(AODVRREP *rrep, const L3Address& sourceAddr);
+
     void handleRREQ(AODVRREQ *rreq, const L3Address& sourceAddr, unsigned int timeToLive);
     void handleRERR(AODVRERR *rerr, const L3Address& sourceAddr);
     void handleHelloMessage(AODVRREP *helloMessage);
@@ -190,11 +194,19 @@ class INET_API AODVRouting : public cSimpleModule, public ILifecycle, public INe
     void sendRREQ(AODVRREQ *rreq, const L3Address& destAddr, unsigned int timeToLive);
     void sendRREPACK(AODVRREPACK *rrepACK, const L3Address& destAddr);
     void sendRREP(AODVRREP *rrep, const L3Address& destAddr, unsigned int timeToLive);
+    //add: filepack function
+    void sendfilePack(AODVfilePack *filepack, const L3Address& destAddr, unsigned int timeToLive);
+
     void sendGRREP(AODVRREP *grrep, const L3Address& destAddr, unsigned int timeToLive);
 
     /* Control Packet forwarders */
     void forwardRREP(AODVRREP *rrep, const L3Address& destAddr, unsigned int timeToLive);
     void forwardRREQ(AODVRREQ *rreq, unsigned int timeToLive);
+
+    //add: filepack function
+    void forwardfilePack(AODVfilePack *filepack, const L3Address& destAddr, unsigned int timeToLive);
+
+
 
     /* Self message handlers */
     void handleRREPACKTimer();

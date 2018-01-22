@@ -29,6 +29,8 @@ network NeighborCacheTest
 {
     parameters:
         int numHosts;
+       bool useHelloMessages = default(true); // see RFC 3561: 6.9
+        
     submodules:
         radioMedium: IdealRadioMedium {
             parameters:

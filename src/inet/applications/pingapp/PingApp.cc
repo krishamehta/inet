@@ -30,6 +30,7 @@
 #include "inet/networklayer/contract/IL3AddressType.h"
 #include "inet/networklayer/contract/IInterfaceTable.h"
 #include "inet/networklayer/contract/INetworkProtocolControlInfo.h"
+#include "inet/networklayer/contract/ipv4/IPv4AddressType.h"
 
 #ifdef WITH_IPv4
 #include "inet/networklayer/ipv4/IPv4InterfaceData.h"
@@ -51,12 +52,6 @@ simsignal_t PingApp::numOutOfOrderArrivalsSignal = registerSignal("numOutOfOrder
 simsignal_t PingApp::pingTxSeqSignal = registerSignal("pingTxSeq");
 simsignal_t PingApp::pingRxSeqSignal = registerSignal("pingRxSeq");
 
-enum PingSelfKinds {
-    PING_FIRST_ADDR = 1001,
-    PING_CHANGE_ADDR,
-    PING_SEND
-};
-
 PingApp::PingApp()
 {
 }
@@ -66,6 +61,7 @@ PingApp::~PingApp()
     cancelAndDelete(timer);
 }
 
+//add: initialize done
 void PingApp::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
@@ -87,7 +83,8 @@ void PingApp::initialize(int stage)
             throw cRuntimeError("Invalid startTime/stopTime parameters");
         printPing = par("printPing").boolValue();
         continuous = par("continuous").boolValue();
-
+        //add:filename
+        fileName = par("fileName");
         // state
         pid = -1;
         lastStart = -1;
@@ -103,7 +100,7 @@ void PingApp::initialize(int stage)
         WATCH(numPongs);
 
         // references
-        timer = new cMessage("sendPing", PING_FIRST_ADDR);
+        timer = new cMessage("sendPing");
 
 
     }
@@ -114,25 +111,7 @@ void PingApp::initialize(int stage)
             startSendingPingRequests();
     }
 }
-
-void PingApp::parseDestAddressesPar()
-{
-    srcAddr = L3AddressResolver().resolve(par("srcAddr"));
-    const char *destAddrs = par("destAddr");
-    if (!strcmp(destAddrs, "*")) {
-        destAddresses = getAllAddresses();
-    }
-    else {
-        cStringTokenizer tokenizer(destAddrs);
-        const char *token;
-
-        while ((token = tokenizer.nextToken()) != nullptr) {
-            L3Address addr = L3AddressResolver().resolve(token);
-            destAddresses.push_back(addr);
-        }
-    }
-}
-
+//add: handleMessage done
 void PingApp::handleMessage(cMessage *msg)
 {
     if (!isNodeUp()) {
@@ -145,57 +124,29 @@ void PingApp::handleMessage(cMessage *msg)
         }
     }
     if (msg->isSelfMessage()) {
-        if (msg->getKind() == PING_FIRST_ADDR) {
-            srcAddr = L3AddressResolver().resolve(par("srcAddr"));
-            parseDestAddressesPar();
-            if (destAddresses.empty()) {
-                return;
-            }
-            destAddrIdx = 0;
-            msg->setKind(PING_CHANGE_ADDR);
-        }
 
-        if (msg->getKind() == PING_CHANGE_ADDR) {
-            if (destAddrIdx >= (int)destAddresses.size())
-                return;
-            destAddr = destAddresses[destAddrIdx];
-            EV_INFO << "Starting up: dest=" << destAddr << "  src=" << srcAddr << "seqNo=" << sendSeqNo << endl;
-            ASSERT(!destAddr.isUnspecified());
-            msg->setKind(PING_SEND);
-        }
-
-        ASSERT2(msg->getKind() == PING_SEND, "Unknown kind in self message.");
+        //add: Resolve source address
+        srcAddr = L3AddressResolver().resolve(par("srcAddr"));
 
         // send a ping
         sendPing();
 
-        if (count > 0 && sendSeqNo % count == 0) {
-            // choose next dest address
-            destAddrIdx++;
-            msg->setKind(PING_CHANGE_ADDR);
-            if (destAddrIdx >= (int)destAddresses.size()) {
-                if (continuous) {
-                    destAddrIdx = destAddrIdx % destAddresses.size();
-                }
-            }
-        }
-
         // then schedule next one if needed
-        scheduleNextPingRequest(simTime(), msg->getKind() == PING_CHANGE_ADDR);
+        scheduleNextPingRequest(simTime());
     }
     else {
         // process ping response
         processPingResponse(check_and_cast<PingPayload *>(msg));
     }
 }
-
+//add: No changes
 void PingApp::refreshDisplay() const
 {
     char buf[40];
     sprintf(buf, "sent: %ld pks\nrcvd: %ld pks", sentCount, numPongs);
     getDisplayString().setTagArg("t", 0, buf);
 }
-
+//add: No changes
 bool PingApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
 {
     Enter_Method_Silent();
@@ -215,58 +166,53 @@ bool PingApp::handleOperationStage(LifecycleOperation *operation, int stage, IDo
         throw cRuntimeError("Unsupported lifecycle operation '%s'", operation->getClassName());
     return true;
 }
-
+//add: startSendingPingRequests done
 void PingApp::startSendingPingRequests()
 {
     ASSERT(!timer->isScheduled());
     pid = getSimulation()->getUniqueNumber();
     lastStart = simTime();
-    timer->setKind(PING_FIRST_ADDR);
     sentCount = 0;
     sendSeqNo = 0;
-    scheduleNextPingRequest(-1, false);
+    scheduleNextPingRequest(-1);
 }
-
+//add: stopSendingPingRequests done
 void PingApp::stopSendingPingRequests()
 {
     pid = -1;
     lastStart = -1;
     sendSeqNo = expectedReplySeqNo = 0;
-    srcAddr = destAddr = L3Address();
-    destAddresses.clear();
-    destAddrIdx = -1;
+    srcAddr = L3Address();
     cancelNextPingRequest();
 }
-
-void PingApp::scheduleNextPingRequest(simtime_t previous, bool withSleep)
+//add: scheduleNextPingRequest done
+void PingApp::scheduleNextPingRequest(simtime_t previous)
 {
     simtime_t next;
     if (previous < SIMTIME_ZERO)
         next = simTime() <= startTime ? startTime : simTime();
     else {
         next = previous + sendIntervalPar->doubleValue();
-        if (withSleep)
-            next += sleepDurationPar->doubleValue();
     }
     if (stopTime < SIMTIME_ZERO || next < stopTime)
         scheduleAt(next, timer);
 }
-
+//add: No changes
 void PingApp::cancelNextPingRequest()
 {
     cancelEvent(timer);
 }
-
+//add: no changes
 bool PingApp::isNodeUp()
 {
     return !nodeStatus || nodeStatus->getState() == NodeStatus::UP;
 }
-
+//add: isEnabled done
 bool PingApp::isEnabled()
 {
-    return par("destAddr").stringValue()[0] && (count == -1 || sentCount < count);
+    return (count == -1 || sentCount < count);
 }
-
+//add: processPingResponse done
 void PingApp::processPingResponse(PingPayload *msg)
 {
     if (msg->getOriginatorId() != pid) {
@@ -287,20 +233,22 @@ void PingApp::processPingResponse(PingPayload *msg)
     // to signal that this value should not be used during the RTT statistics)
     simtime_t rtt = sendSeqNo - msg->getSeqNo() > PING_HISTORY_SIZE ?
         0 : simTime() - sendTimeHistory[msg->getSeqNo() % PING_HISTORY_SIZE];
+    //add: filename in cout
 
     if (printPing) {
         cout << getFullPath() << ": reply of " << std::dec << msg->getByteLength()
              << " bytes from " << src
              << " icmp_seq=" << msg->getSeqNo() << " ttl=" << msgHopCount
              << " time=" << (rtt * 1000) << " msec"
-             << " (" << msg->getName() << ")" << endl;
+             << " (" << msg->getName() << ")"
+             << "File Name: " << ctrl->fileName << endl;
     }
 
     // update statistics
     countPingResponse(msg->getByteLength(), msg->getSeqNo(), rtt);
     delete msg;
 }
-
+//add: countPingResponse done
 void PingApp::countPingResponse(int bytes, long seqNo, simtime_t rtt)
 {
     EV_INFO << "Ping reply #" << seqNo << " arrived, rtt=" << rtt << "\n";
@@ -339,43 +287,7 @@ void PingApp::countPingResponse(int bytes, long seqNo, simtime_t rtt)
         emit(numLostSignal, lossCount);
     }
 }
-
-std::vector<L3Address> PingApp::getAllAddresses()
-{
-    std::vector<L3Address> result;
-
-    int lastId = getSimulation()->getLastComponentId();
-
-    for (int i = 0; i <= lastId; i++)
-    {
-        IInterfaceTable *ift = dynamic_cast<IInterfaceTable *>(getSimulation()->getModule(i));
-        if (ift) {
-            for (int j = 0; j < ift->getNumInterfaces(); j++) {
-                InterfaceEntry *ie = ift->getInterface(j);
-                if (ie && !ie->isLoopback()) {
-#ifdef WITH_IPv4
-                    if (ie->ipv4Data()) {
-                        IPv4Address address = ie->ipv4Data()->getIPAddress();
-                        if (!address.isUnspecified())
-                            result.push_back(L3Address(address));
-                    }
-#endif // ifdef WITH_IPv4
-#ifdef WITH_IPv6
-                    if (ie->ipv6Data()) {
-                        for (int k = 0; k < ie->ipv6Data()->getNumAddresses(); k++) {
-                            IPv6Address address = ie->ipv6Data()->getAddress(k);
-                            if (!address.isUnspecified() && address.isGlobal())
-                                result.push_back(L3Address(address));
-                        }
-                    }
-#endif // ifdef WITH_IPv6
-                }
-            }
-        }
-    }
-    return result;
-}
-
+//add: finish done
 void PingApp::finish()
 {
     if (sendSeqNo == 0) {
@@ -403,7 +315,7 @@ void PingApp::finish()
         cout << "--------------------------------------------------------" << endl;
     }
 }
-
+//add: sendPing done
 void PingApp::sendPing()
 {
     char name[32];
@@ -421,11 +333,13 @@ void PingApp::sendPing()
     emit(pingTxSeqSignal, sendSeqNo);
     sendSeqNo++;
     sentCount++;
-    IL3AddressType *addressType = destAddr.getAddressType();
+    IL3AddressType *addressType = &IPv4AddressType::INSTANCE;
     INetworkProtocolControlInfo *controlInfo = addressType->createNetworkProtocolControlInfo();
     controlInfo->setSourceAddress(srcAddr);
-    controlInfo->setDestinationAddress(destAddr);
+    //controlInfo->setDestinationAddress(destAddr);
     controlInfo->setHopLimit(hopLimit);
+    //add: Filename added.
+    controlInfo->fileName = this->fileName;
     // TODO: remove
     controlInfo->setTransportProtocol(1);    // IP_PROT_ICMP);
     msg->setControlInfo(dynamic_cast<cObject *>(controlInfo));

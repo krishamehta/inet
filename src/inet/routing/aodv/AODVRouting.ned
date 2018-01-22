@@ -43,7 +43,7 @@ simple AODVRouting
         string networkProtocolModule = default("^.networkLayer.ip");
 
         bool askGratuitousRREP = default(false); // see RFC 3561: 6.6.3
-        bool useHelloMessages = default(true); // see RFC 3561: 6.9
+        bool useHelloMessages = default(false); // see RFC 3561: 6.9
         bool useLocalRepair = default(false); // see RFC 3561: 6.12 *not implemented yet*
         int udpPort = default(654);
 
